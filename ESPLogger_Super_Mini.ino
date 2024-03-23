@@ -9,6 +9,7 @@
 #include <WebServer.h>
 #include "Buzzer.h"
 #include "Backup_Data.h"
+#include "Serial_Debug.h"
 
 //Define constants
 #define SEALEVELPRESSURE_HPA 1013.25 
@@ -19,6 +20,7 @@
 #define flushtime 2000
 #define armcheck 20 //<--This is the minimum height in meters that the deployment charge can go off. Change this for whatever needed.
 #define logtime 0 //set logging delay. the logging loop takes approximately 10ms, this is additional time added to the loop
+//#define datadebugging
 
 //Variables
 float pressure, altitude, altioffset, correctedalt, maxaccel, TTA, ax, ay, az, gx, gy, gz;
@@ -54,11 +56,12 @@ SdFat SD;
 SdFile logfile;
 Buzzer Buzz(3);
 Backup_Data Backup(0, 4, 8); //backup logging object - takes EEPROM addresses for 3 data points
+Serial_Debug Debug(115200);
 
 void setup() {
 //start buzzer library and serial
-  Serial.begin(115200);
   Wire.begin();
+  Debug.begin();
   Wire.setClock(1000000);
 
 //setup begin tone
@@ -74,14 +77,12 @@ void setup() {
   int rslt;
   while( ERR_OK != (rslt = bmp.begin()) ){
     if(ERR_DATA_BUS == rslt){
-      Serial.println("BMP error!");
-      Serial.println("Data bus!");
+      Debug.debugBMP(1);
       Buzz.error();
       while(1);
       }
       else if(ERR_IC_VERSION == rslt){
-             Serial.println("BMP error!");
-             Serial.println("Chip version!");
+             Debug.debugBMP(2);
              Buzz.error();
              while(1);
              }
@@ -100,7 +101,7 @@ void setup() {
      mpu.setFilterBandwidth(MPU6050_BAND_260_HZ);
      }
   else {
-       Serial.println("MPU error!");
+       Debug.debugIMU();
        Buzz.error();
        while(1);
        }
@@ -123,13 +124,10 @@ void setup() {
      }
   else {
        EEPROMenabled = true; //EEPROM has limited writes, so to save EEPROM wear, writes will only occur if EEPROMenabled is true (so like... when my dumb ass forgets the SD card...).
-       Serial.println("SD error!");
+       Debug.debugSD();
        Buzz.error();
        while (1); //stopper - this can be changed to a prompt once the EEPROM code is ready to allow logger to continue without the SD card
        }
-  if (sensordebugging){
-     #define COMMA2 Serial.print(", ");
-     }
 
   WiFi.softAP(ssid, password);
   WiFi.softAPConfig(local_ip, gateway, subnet);
@@ -403,19 +401,9 @@ void loop() {
     }
 
 //Serial readouts   
- if(sensordebugging){
-    Serial.println();
-    Serial.print(timer); COMMA2;
-    Serial.print(pressure); COMMA2;
-    Serial.print(altitude); COMMA2;
-    Serial.print(correctedalt); COMMA2;
-    Serial.print(ax); COMMA2;
-    Serial.print(ay); COMMA2;
-    Serial.print(az); COMMA2;
-    Serial.print(gx); COMMA2;
-    Serial.print(gy); COMMA2;
-    Serial.print(gz); COMMA2;
-    }
+#ifdef datadebugging
+    Debug.debugdata(timer, pressure, altitude, correctedalt, ax, ay, az, gx, gy, gz);
+#endif
 
 //logging timeout check
   if (droguefired && correctedalt < 10) {
@@ -441,5 +429,5 @@ The intention is to build a smaller but faster data logger than Logger v4.0.
 To do:
 -Finish EEPROM backup, probably will put it in a library, it's not that hard. (it's in a library now, but untested)
 -Explore adding a 9-axis IMU in place of the MPU6050
--Serial debugging added but needs cleaning up. Need to throw it in a library maybe.
+-Serial debugging now added as a library!
 */

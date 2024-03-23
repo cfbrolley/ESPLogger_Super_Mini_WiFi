@@ -2,7 +2,6 @@
 #include <EEPROM.h>
 #include "Backup_Data.h"
 
-
 Backup_Data::Backup_Data(int ALTITUDE_ADDRESS, int MAX_ACCEL_ADDRESS, int TTA_ADDRESS) //When creating instance, pass the EEPROM memory addresses to the library and it'll handle the rest
 {
   _ALTITUDE_ADDRESS = ALTITUDE_ADDRESS;

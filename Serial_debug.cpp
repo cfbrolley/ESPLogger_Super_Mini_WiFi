@@ -1,40 +1,49 @@
 #include <arduino.h>
 #include "Serial_Debug.h"
 
-SerialDebug::SerialDebug()
-{
-_baud = baud
+Serial_Debug::Serial_Debug(int baud) {
+_baud = baud;
 }
 
-void SerialDebug::begin()
-{
+void Serial_Debug::begin() {
   Serial.begin(_baud);
 }
 
-void SerialDebug::debugdata(unsigned long _timer, float _pressure, float _altitude, float _correctedalt, float _ax, float _ay, float _az, float _gx, float _gy, float _gz) {
+void Serial_Debug::debugdata(unsigned long _timer, float _pressure, float _altitude, float _correctedalt, float _ax, float _ay, float _az, float _gx, float _gy, float _gz) {
     #define COMMA Serial.print(", ");
     Serial.println();
-    Serial.print(timer); COMMA;
-    Serial.print(pressure); COMMA;
-    Serial.print(altitude); COMMA;
-    Serial.print(correctedalt); COMMA;
-    Serial.print(ax); COMMA;
-    Serial.print(ay); COMMA;
-    Serial.print(az); COMMA;
-    Serial.print(gx); COMMA;
-    Serial.print(gy); COMMA;
-    Serial.print(gz); COMMA;
+    Serial.print(_timer); COMMA;
+    Serial.print(_pressure); COMMA;
+    Serial.print(_altitude); COMMA;
+    Serial.print(_correctedalt); COMMA;
+    Serial.print(_ax); COMMA;
+    Serial.print(_ay); COMMA;
+    Serial.print(_az); COMMA;
+    Serial.print(_gx); COMMA;
+    Serial.print(_gy); COMMA;
+    Serial.print(_gz); COMMA;
 }
 
-void SerialDebug::debugBMP() {
+void Serial_Debug::debugBMP(int _BMPcode) {
+  switch (_BMPcode) {
+  case 1:
       Serial.println("BMP error!");
       Serial.println("Data bus!");
+      break;
+  case 2:
+      Serial.println("BMP error!");
+      Serial.println("Chip version!");
+      break;
+  default:
+      Serial.println("BMP error!");
+      break;
+  }    
 }
 
-void SerialDebug::debugIMU() {
+void Serial_Debug::debugIMU() {
       Serial.println("IMU error!");
 }
 
-void SerialDebug::debugSD() {
+void Serial_Debug::debugSD() {
       Serial.println("SD error!");
 }
