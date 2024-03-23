@@ -24,7 +24,7 @@ void Serial_Debug::debugdata(unsigned long _timer, float _pressure, float _altit
     Serial.print(_gz); COMMA;
 }
 
-void Serial_Debug::debugBMP(int _BMPcode) {
+void Serial_Debug::debugBMP(int _BMPcode, float _altioffset) {
   switch (_BMPcode) {
   case 1:
       Serial.println("BMP error!");
@@ -34,8 +34,16 @@ void Serial_Debug::debugBMP(int _BMPcode) {
       Serial.println("BMP error!");
       Serial.println("Chip version!");
       break;
+  case 3:
+      Serial.println("BMP OK!");
+      Serial.println("starting altitude: ");
+      Serial.print(_altioffset);
+      Serial.print("m");
+      Serial.println();
+      break;
   default:
       Serial.println("BMP error!");
+      Serial.println("unknown!");
       break;
   }    
 }

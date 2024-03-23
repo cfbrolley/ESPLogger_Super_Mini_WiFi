@@ -15,11 +15,11 @@
 #define SEALEVELPRESSURE_HPA 1013.25 
 #define droguepin 0
 #define mainpin 1
-#define mainalti 150 //trigger altitude to activate mainpin
+#define mainalti 100 //trigger altitude to activate mainpin
 #define buzztime 3000
 #define flushtime 2000
 #define armcheck 20 //<--This is the minimum height in meters that the deployment charge can go off. Change this for whatever needed.
-#define logtime 0 //set logging delay. the logging loop takes approximately 10ms, this is additional time added to the loop
+#define logtime 10 //set minimum logging interval in ms.
 //#define datadebugging
 
 //Variables
@@ -77,23 +77,26 @@ void setup() {
   int rslt;
   while( ERR_OK != (rslt = bmp.begin()) ){
     if(ERR_DATA_BUS == rslt){
-      Debug.debugBMP(1);
+      Debug.debugBMP(1, 0);
       Buzz.error();
       while(1);
       }
       else if(ERR_IC_VERSION == rslt){
-             Debug.debugBMP(2);
+             Debug.debugBMP(2, 0);
              Buzz.error();
              while(1);
              }
+    }
+
     bmp.setPWRMode(bmp.ePressEN | bmp.eTempEN | bmp.eNormalMode);
     bmp.setOSRMode(bmp.ePressOSRMode2 | bmp.eTempOSRMode1);
-    bmp.setODRMode(BMP3XX_ODR_200_HZ);
-    bmp.setIIRMode(BMP3XX_IIR_CONFIG_COEF_7);
-    delay(2000);
-    pressure = bmp.readPressPa();
+    bmp.setODRMode(BMP3XX_ODR_100_HZ);
+    bmp.setIIRMode(BMP3XX_IIR_CONFIG_COEF_3);
+    delay(1000);
+    pressure = bmp.readPressPa()/100;
     altioffset = 44330.0 * (1.0 - pow(pressure / SEALEVELPRESSURE_HPA, 0.1903)); //Figure out an offest for height above ground. There's a better way to do this with the BMP probably.
-    }
+    Debug.debugBMP(3, altioffset);
+
 //start MPU6050
   if (mpu.begin()) {
      mpu.setAccelerometerRange(MPU6050_RANGE_16_G);
@@ -132,7 +135,7 @@ void setup() {
   WiFi.softAP(ssid, password);
   WiFi.softAPConfig(local_ip, gateway, subnet);
   delay(100);
-  
+  server.enableDelay(false);
   server.on("/", handle_SplashPage);
   server.on("/startLogging", handle_Logging);
   server.onNotFound(handle_NotFound);
@@ -142,7 +145,7 @@ void setup() {
 //indicate setup is done.
   Buzz.success();
   Serial.println("Setup success");
-  Wait();
+  //Wait();
 }
 
 void handle_SplashPage() {
@@ -260,12 +263,12 @@ void readsensors (void) {
   mpu.getEvent(&a, &g, &temp);
 
 //Calibration values need to be adjusted for each logger  
-  ax = a.acceleration.x - 0.84;
-  ay = a.acceleration.y + 0.17;
-  az = a.acceleration.z - 10.67;
-  gx = g.gyro.x + 0.09;
-  gy = g.gyro.y - 0.03;
-  gz = g.gyro.z - 0.03;
+  ax = a.acceleration.x - 0.74;
+  ay = a.acceleration.y - 0.15;
+  az = a.acceleration.z + 1.78;
+  gx = g.gyro.x + 0.29;
+  gy = g.gyro.y + 0.59;
+  gz = g.gyro.z + 0.18;
 
 //liftoff check
   if (!liftoff && az >= 3){
@@ -373,17 +376,19 @@ void endlog (void) {
 }
 
 void loop() {
-  server.handleClient(); //handle incoming requests from wifi client. suspect this is causing intermittent spikes in the time between sensor logs every 150ms or so though.
-  timer = millis();
-  while (millis() - timer < logtime){} //pause here for a moment to allow the sensors enough time to get new readings
-//Tone indicating logging is happening
+  while (millis() - timer < logtime){} //pause here for a moment until it's time to get new readings
+
+//run through the sensor reads and deployment checks
+  readsensors();
+  arming();
+
+//Tone indicating logging is happening. Pretty sure the "if" statement can be run as part of the function instead, but that also means calling the function every loop rather than only making it conditional
   if (timer - buzzclock >= buzztime) {
      Buzz.running();
      buzzclock = timer;
      }
-//run through the sensor reads and deployment checks
-  readsensors();
-  arming();
+
+  server.handleClient(); //handle incoming requests from wifi client. suspect this is causing intermittent spikes in the time between sensor logs every 150ms or so though.
 
 //log the readings to file
  if (!EEPROMenabled){
