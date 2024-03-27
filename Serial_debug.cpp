@@ -1,40 +1,81 @@
 #include <arduino.h>
 #include "Serial_Debug.h"
 
-SerialDebug::SerialDebug()
-{
-_baud = baud
+Serial_Debug::Serial_Debug(int baud) {
+_baud = baud;
 }
 
-void SerialDebug::begin()
-{
+void Serial_Debug::begin() {
   Serial.begin(_baud);
 }
 
-void SerialDebug::debugdata(unsigned long _timer, float _pressure, float _altitude, float _correctedalt, float _ax, float _ay, float _az, float _gx, float _gy, float _gz) {
+void Serial_Debug::data(unsigned long _timer, float _pressure, float _altitude, float _correctedalt, float _ax, float _ay, float _az, float _gx, float _gy, float _gz) {
     #define COMMA Serial.print(", ");
     Serial.println();
-    Serial.print(timer); COMMA;
-    Serial.print(pressure); COMMA;
-    Serial.print(altitude); COMMA;
-    Serial.print(correctedalt); COMMA;
-    Serial.print(ax); COMMA;
-    Serial.print(ay); COMMA;
-    Serial.print(az); COMMA;
-    Serial.print(gx); COMMA;
-    Serial.print(gy); COMMA;
-    Serial.print(gz); COMMA;
+    Serial.print(_timer); COMMA;
+    Serial.print(_pressure); COMMA;
+    Serial.print(_altitude); COMMA;
+    Serial.print(_correctedalt); COMMA;
+    Serial.print(_ax); COMMA;
+    Serial.print(_ay); COMMA;
+    Serial.print(_az); COMMA;
+    Serial.print(_gx); COMMA;
+    Serial.print(_gy); COMMA;
+    Serial.print(_gz); COMMA;
 }
 
-void SerialDebug::debugBMP() {
+void Serial_Debug::BMP(int _BMPcode, float _altioffset) {
+  switch (_BMPcode) {
+  case 1:
       Serial.println("BMP error!");
       Serial.println("Data bus!");
+      break;
+  case 2:
+      Serial.println("BMP error!");
+      Serial.println("Chip version!");
+      break;
+  case 3:
+      Serial.println("BMP OK!");
+      Serial.println("starting altitude: ");
+      Serial.print(_altioffset);
+      Serial.print("m");
+      Serial.println();
+      break;
+  default:
+      Serial.println("BMP error!");
+      Serial.println("unknown!");
+      break;
+  }    
 }
 
-void SerialDebug::debugIMU() {
+void Serial_Debug::IMU(int _IMUcode) {
+  switch (_IMUcode) {
+  case 1:
       Serial.println("IMU error!");
+      break;
+  case 2:
+      Serial.println("IMU OK!");
+      break;
+  default:
+      Serial.println("IMU error!");
+      break;
+  }
 }
 
-void SerialDebug::debugSD() {
+void Serial_Debug::SD(int _SDcode) {
+  switch (_SDcode) {
+  case 1:
       Serial.println("SD error!");
+      break;
+  case 2:
+      Serial.println("SD OK!");
+      break;
+  default:
+      Serial.println("SD error!");
+      break;
+  }
+}
+
+void Serial_Debug::WiFi() {
+  Serial.println("HTTP server started");
 }

@@ -7,18 +7,21 @@
 #include <DFRobot_BMP3XX.h>
 #include <WiFi.h>
 #include <WebServer.h>
+#include "Web_Pages.h"
 #include "Buzzer.h"
 #include "Backup_Data.h"
+#include "Serial_Debug.h"
 
 //Define constants
 #define SEALEVELPRESSURE_HPA 1013.25 
 #define droguepin 0
 #define mainpin 1
-#define mainalti 150 //trigger altitude to activate mainpin
+#define mainalti 100 //trigger altitude to activate mainpin
 #define buzztime 3000
 #define flushtime 2000
 #define armcheck 20 //<--This is the minimum height in meters that the deployment charge can go off. Change this for whatever needed.
-#define logtime 0 //set logging delay. the logging loop takes approximately 10ms, this is additional time added to the loop
+#define logtime 10 //set minimum logging interval in ms.
+#define datadebugging
 
 //Variables
 float pressure, altitude, altioffset, correctedalt, maxaccel, TTA, ax, ay, az, gx, gy, gz;
@@ -54,11 +57,12 @@ SdFat SD;
 SdFile logfile;
 Buzzer Buzz(3);
 Backup_Data Backup(0, 4, 8); //backup logging object - takes EEPROM addresses for 3 data points
+Serial_Debug Debug(115200);
 
 void setup() {
 //start buzzer library and serial
-  Serial.begin(115200);
   Wire.begin();
+  Debug.begin();
   Wire.setClock(1000000);
 
 //setup begin tone
@@ -74,33 +78,35 @@ void setup() {
   int rslt;
   while( ERR_OK != (rslt = bmp.begin()) ){
     if(ERR_DATA_BUS == rslt){
-      Serial.println("BMP error!");
-      Serial.println("Data bus!");
+      Debug.BMP(1, 0);
       Buzz.error();
       while(1);
       }
       else if(ERR_IC_VERSION == rslt){
-             Serial.println("BMP error!");
-             Serial.println("Chip version!");
+             Debug.BMP(2, 0);
              Buzz.error();
              while(1);
              }
+    }
+
     bmp.setPWRMode(bmp.ePressEN | bmp.eTempEN | bmp.eNormalMode);
     bmp.setOSRMode(bmp.ePressOSRMode2 | bmp.eTempOSRMode1);
-    bmp.setODRMode(BMP3XX_ODR_200_HZ);
-    bmp.setIIRMode(BMP3XX_IIR_CONFIG_COEF_7);
-    delay(2000);
-    pressure = bmp.readPressPa();
+    bmp.setODRMode(BMP3XX_ODR_100_HZ);
+    bmp.setIIRMode(BMP3XX_IIR_CONFIG_COEF_3);
+    delay(1000);
+    pressure = bmp.readPressPa()/100;
     altioffset = 44330.0 * (1.0 - pow(pressure / SEALEVELPRESSURE_HPA, 0.1903)); //Figure out an offest for height above ground. There's a better way to do this with the BMP probably.
-    }
+    Debug.BMP(3, altioffset);
+
 //start MPU6050
   if (mpu.begin()) {
      mpu.setAccelerometerRange(MPU6050_RANGE_16_G);
      mpu.setGyroRange(MPU6050_RANGE_2000_DEG);
      mpu.setFilterBandwidth(MPU6050_BAND_260_HZ);
+     Debug.IMU(2);
      }
   else {
-       Serial.println("MPU error!");
+       Debug.IMU(1);
        Buzz.error();
        while(1);
        }
@@ -119,27 +125,25 @@ void setup() {
      logfile.println("~ SUPER MINI LOGGER BETA ~");
      logfile.println();
      logfile.println("ms,pres,alt,rel. alt,ax,ay,az,gx,gy,gz");
-     logfile.sync();    
+     logfile.sync(); 
+     Debug.SD(2);   
      }
   else {
        EEPROMenabled = true; //EEPROM has limited writes, so to save EEPROM wear, writes will only occur if EEPROMenabled is true (so like... when my dumb ass forgets the SD card...).
-       Serial.println("SD error!");
+       Debug.SD(1);
        Buzz.error();
-       while (1); //stopper - this can be changed to a prompt once the EEPROM code is ready to allow logger to continue without the SD card
+       while (1); //stopper. This can be changed to a prompt once the EEPROM code is ready to allow logger to continue without the SD card.
        }
-  if (sensordebugging){
-     #define COMMA2 Serial.print(", ");
-     }
 
   WiFi.softAP(ssid, password);
   WiFi.softAPConfig(local_ip, gateway, subnet);
   delay(100);
-  
+  server.enableDelay(false);
   server.on("/", handle_SplashPage);
   server.on("/startLogging", handle_Logging);
   server.onNotFound(handle_NotFound);
   server.begin();
-  Serial.println("HTTP server started");
+  Debug.WiFi();
 
 //indicate setup is done.
   Buzz.success();
@@ -148,7 +152,7 @@ void setup() {
 }
 
 void handle_SplashPage() {
-  server.send(200, "text/html", SplashPage());
+  server.send(200, "text/html", SPLASH);
 }
 
 void handle_Logging() {
@@ -167,7 +171,7 @@ void Wait() {
         }
 }
 
-String SplashPage() {
+/*String SplashPage() {
   String ptr = "<!DOCTYPE html> <html>\n";
   ptr +="<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
   ptr +="<title>ESP32 Data Logger</title>\n";
@@ -186,7 +190,7 @@ String SplashPage() {
   ptr +="</body>\n";
   ptr +="</html>\n";
   return ptr;
-}
+}*/
 
 String SendHTML(float pressure,float altitude,float correctedalt,float maxaccel,float ax,float ay,float az,float gx,float gy,float gz){
   String ptr = "<!DOCTYPE html> <html>\n";
@@ -262,12 +266,12 @@ void readsensors (void) {
   mpu.getEvent(&a, &g, &temp);
 
 //Calibration values need to be adjusted for each logger  
-  ax = a.acceleration.x - 0.84;
-  ay = a.acceleration.y + 0.17;
-  az = a.acceleration.z - 10.67;
-  gx = g.gyro.x + 0.09;
-  gy = g.gyro.y - 0.03;
-  gz = g.gyro.z - 0.03;
+  ax = a.acceleration.x - 0.74;
+  ay = a.acceleration.y - 0.15;
+  az = a.acceleration.z + 1.78;
+  gx = g.gyro.x + 0.29;
+  gy = g.gyro.y + 0.59;
+  gz = g.gyro.z + 0.18;
 
 //liftoff check
   if (!liftoff && az >= 3){
@@ -375,17 +379,19 @@ void endlog (void) {
 }
 
 void loop() {
-  server.handleClient(); //handle incoming requests from wifi client. suspect this is causing intermittent spikes in the time between sensor logs every 150ms or so though.
-  timer = millis();
-  while (millis() - timer < logtime){} //pause here for a moment to allow the sensors enough time to get new readings
-//Tone indicating logging is happening
+  while (millis() - timer < logtime){} //pause here for a moment until it's time to get new readings
+
+//run through the sensor reads and deployment checks
+  readsensors();
+  arming();
+
+//Tone indicating logging is happening. Pretty sure the "if" statement can be run as part of the function instead, but that also means calling the function every loop rather than only making it conditional
   if (timer - buzzclock >= buzztime) {
      Buzz.running();
      buzzclock = timer;
      }
-//run through the sensor reads and deployment checks
-  readsensors();
-  arming();
+
+  server.handleClient(); //handle incoming requests from wifi client. suspect this is causing intermittent spikes in the time between sensor logs every 150ms or so though.
 
 //log the readings to file
  if (!EEPROMenabled){
@@ -403,19 +409,9 @@ void loop() {
     }
 
 //Serial readouts   
- if(sensordebugging){
-    Serial.println();
-    Serial.print(timer); COMMA2;
-    Serial.print(pressure); COMMA2;
-    Serial.print(altitude); COMMA2;
-    Serial.print(correctedalt); COMMA2;
-    Serial.print(ax); COMMA2;
-    Serial.print(ay); COMMA2;
-    Serial.print(az); COMMA2;
-    Serial.print(gx); COMMA2;
-    Serial.print(gy); COMMA2;
-    Serial.print(gz); COMMA2;
-    }
+#ifdef datadebugging
+    Debug.data(timer, pressure, altitude, correctedalt, ax, ay, az, gx, gy, gz);
+#endif
 
 //logging timeout check
   if (droguefired && correctedalt < 10) {
@@ -441,5 +437,5 @@ The intention is to build a smaller but faster data logger than Logger v4.0.
 To do:
 -Finish EEPROM backup, probably will put it in a library, it's not that hard. (it's in a library now, but untested)
 -Explore adding a 9-axis IMU in place of the MPU6050
--Serial debugging added but needs cleaning up. Need to throw it in a library maybe.
+-Serial debugging now added as a library!
 */
