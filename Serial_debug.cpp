@@ -9,7 +9,7 @@ void Serial_Debug::begin() {
   Serial.begin(_baud);
 }
 
-void Serial_Debug::debugdata(unsigned long _timer, float _pressure, float _altitude, float _correctedalt, float _ax, float _ay, float _az, float _gx, float _gy, float _gz) {
+void Serial_Debug::data(unsigned long _timer, float _pressure, float _altitude, float _correctedalt, float _ax, float _ay, float _az, float _gx, float _gy, float _gz) {
     #define COMMA Serial.print(", ");
     Serial.println();
     Serial.print(_timer); COMMA;
@@ -24,7 +24,7 @@ void Serial_Debug::debugdata(unsigned long _timer, float _pressure, float _altit
     Serial.print(_gz); COMMA;
 }
 
-void Serial_Debug::debugBMP(int _BMPcode, float _altioffset) {
+void Serial_Debug::BMP(int _BMPcode, float _altioffset) {
   switch (_BMPcode) {
   case 1:
       Serial.println("BMP error!");
@@ -48,10 +48,34 @@ void Serial_Debug::debugBMP(int _BMPcode, float _altioffset) {
   }    
 }
 
-void Serial_Debug::debugIMU() {
+void Serial_Debug::IMU(int _IMUcode) {
+  switch (_IMUcode) {
+  case 1:
       Serial.println("IMU error!");
+      break;
+  case 2:
+      Serial.println("IMU OK!");
+      break;
+  default:
+      Serial.println("IMU error!");
+      break;
+  }
 }
 
-void Serial_Debug::debugSD() {
+void Serial_Debug::SD(int _SDcode) {
+  switch (_SDcode) {
+  case 1:
       Serial.println("SD error!");
+      break;
+  case 2:
+      Serial.println("SD OK!");
+      break;
+  default:
+      Serial.println("SD error!");
+      break;
+  }
+}
+
+void Serial_Debug::WiFi() {
+  Serial.println("HTTP server started");
 }
